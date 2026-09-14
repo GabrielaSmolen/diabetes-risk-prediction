@@ -1,161 +1,147 @@
-# DiabetesProject - End-to-End MLOps Pipeline
+# Diabetes Risk Prediction Project (End-to-End ML Pipeline & MLOps)
 
-An end-to-end Machine Learning microservice architecture for diabetes risk prediction. The project features a FastAPI backend serving a trained Scikit-learn model and an interactive Streamlit frontend, orchestrated using Docker Compose.
+A production-ready Machine Learning system engineered for **Diabetes Risk Prediction** from clinical tabular data. Built with strict MLOps principles and production standards, this project demonstrates data leakage prevention, domain-aware feature processing, clinical decision-threshold optimization, containerization with Docker, and a decoupled REST API + Web UI architecture.
 
 ---
 
-## System Architecture
+## 🌟 Key Engineering & MLOps Highlights
 
-The application is built on a dual-service containerized architecture:
+* **Explicit Diabetes Risk Modeling**: Predicts patient diabetes risk based on key physiological metrics (Glucose, Blood Pressure, BMI, Insulin, Age, etc.) using machine learning classification.
+* **Zero Data Leakage**: Integrated feature preprocessing directly inside a unified `scikit-learn` `Pipeline` and `ColumnTransformer`. All imputations and scalings are fit strictly on training folds during cross-validation.
+* **Domain-Aware Biological Imputation**: Biologically impossible zero values in clinical fields (e.g., Glucose = 0, BMI = 0, Blood Pressure = 0) are treated as missing observations and imputed using median strategies with missingness indicators (`add_indicator=True`).
+* **Imbalanced Data & Threshold Tuning**: Addresses class imbalance (~35% positive outcome) using cost-sensitive learning (`class_weight='balanced'`) and automated Precision-Recall curve threshold optimization to maximize clinical sensitivity and $F_1$-score.
+* **Full Containerization (Docker & Compose)**: Containerized backend (FastAPI) and frontend (Streamlit) services orchestrated seamlessly via `docker-compose.yml`.
+* **Software Engineering Best Practices**: Modular code architecture under `src/`, centralized logging, custom exception handling, and automated unit testing powered by `pytest`.
+
+---
+
+## 🏗 System Architecture
 
 ```
-+--------------------------+       HTTP POST       +--------------------------+
-|                          |    (JSON Payload)     |                          |
-|    Streamlit Frontend    | --------------------> |      FastAPI Backend     |
-|   http://localhost:8501  |                       |   http://localhost:8000  |
-|                          | <-------------------- |                          |
-+--------------------------+    (Risk & Prob %)    +------------+-------------+
-                                                                |
-                                                                v
-                                                     +--------------------+
-                                                     | Scikit-learn Model |
-                                                     |(diabetes_model.pkl)|
-                                                     +--------------------+
+                       [ Raw Diabetes Data ]
+                                 │
+                                 ▼
+                   [ Stratified Train/Test Split ]
+                                 │
+                                 ▼
+                     [ Scikit-Learn Pipeline ]
+     ├── ColumnTransformer
+     │    ├── Zero-to-NaN Conversion & Median Imputation
+     │    ├── Missingness Indicators (add_indicator=True)
+     │    └── Feature Scaling (StandardScaler)
+     └── Classifier (RandomForest / LogisticRegression)
+                                 │
+                                 ▼
+             [ Precision-Recall Decision Optimization ]
+                                 │
+                                 ▼
+             [ Serialized Pipeline Artifact ] (.pkl)
+                                 │
+      ┌──────────────────────────┴──────────────────────────┐
+      ▼                                                     ▼
+┌──────────────────────────────┐          ┌──────────────────────────────┐
+│       FastAPI Backend        │          │      Streamlit Web UI        │
+│    (REST API Service)        │◄─────────┤   (Interactive Interface)    │
+│  [Docker Container - 8000]   │          │  [Docker Container - 8501]   │
+└──────────────────────────────┘          └──────────────────────────────┘
 ```
 
-* **Frontend Container (`diabetes_frontend`):** Streamlit web interface for inputting patient clinical features and visualizing predictions.
-* **Backend API Container (`diabetes_api`):** REST API powered by FastAPI, performing data validation using Pydantic models and executing real-time inference.
-
 ---
 
-## Tech Stack
+## 📁 Repository Structure
 
-* **Language:** Python 3.10
-* **Machine Learning:** Scikit-learn, Pandas, Joblib / Pickle
-* **API Framework:** FastAPI, Uvicorn, Pydantic
-* **Frontend Framework:** Streamlit
-* **Containerization:** Docker, Docker Compose
-* **Testing:** Pytest, HTTPX
-
----
-
-## Project Structure
-
-```text
+```
 DiabetesProject/
-├── venv/                     # Local virtual environment
+├── data/
+│   └── diabetes.csv           # Clinical dataset for diabetes risk prediction
 ├── models/
-│   └── diabetes_model.pkl    # Serialized ML model artifact
+│   └── diabetes_model.pkl     # Serialized scikit-learn pipeline artifact
 ├── src/
-│   ├── __init__.py           # Package initialization
-│   ├── api.py                # FastAPI REST endpoints and Pydantic schemas
-│   ├── app_ui.py             # Streamlit interactive web interface
-│   ├── logger.py             # Logging configuration
-│   └── train.py              # Machine Learning pipeline training script
+│   ├── api.py                 # FastAPI backend endpoints
+│   ├── app_ui.py              # Streamlit interactive user interface
+│   ├── eda.ipynb              # Exploratory Data Analysis notebook
+│   ├── logger.py              # Centralized logging configuration
+│   ├── train.py               # Model training & threshold tuning script
+│   └── utils.py               # Preprocessing and helper functions
 ├── tests/
-│   └── test_api.py           # Pytest unit and integration tests
-├── .gitignore                # Git ignore rules
-├── conftest.py               # Pytest configuration and fixtures
-├── Dockerfile                # Backend container configuration
-├── Dockerfile.frontend       # Frontend container configuration
-├── docker-compose.yml        # Orchestration configuration for multi-container stack
-├── explore_data.py           # Data exploration and analysis script
-├── README.md                 # Project documentation
-└── requirements.txt          # Frozen Python dependencies
+│   └── test_api.py            # Automated unit and integration test suite
+├── .gitignore                 # Version control exclusion rules
+├── conftest.py                # Pytest configuration & fixtures
+├── Dockerfile                 # Docker configuration for FastAPI backend
+├── Dockerfile.frontend        # Docker configuration for Streamlit frontend
+├── docker-compose.yml         # Container orchestration setup
+├── requirements.txt           # Python dependency specification
+└── README.md                  # Project documentation
 ```
 
 ---
 
-## Prerequisites
+## 🚀 Quickstart & Deployment
 
-* **Docker Desktop** (with **WSL 2** backend on Windows).
-* Hardware virtualization (**SVM Mode** / **VT-x**) enabled in system BIOS.
+### Option A: Running via Docker Compose (Recommended)
+
+The entire application stack (API + Web UI) can be launched in isolated containers with a single command:
+
+```bash
+# Build and run backend and frontend services
+docker-compose up --build
+```
+
+Access the interfaces:
+* **Streamlit Web UI**: `http://localhost:8501`
+* **FastAPI Swagger Docs**: `http://localhost:8000/docs`
 
 ---
 
-## Quickstart Guide
+### Option B: Local Python Environment
 
-### 1. Run via Docker Compose
+#### 1. Setup Virtual Environment
+```bash
+git clone https://github.com/GabrielaSmolen/DiabetesProject.git
+cd DiabetesProject
 
-Build and launch the entire dual-container stack with a single command:
-
-```powershell
-docker compose up --build
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-### 2. Access the Applications
-
-* **Streamlit Web UI:** Open http://localhost:8501
-* **Interactive API Documentation (Swagger UI):** Open http://localhost:8000/docs
-* **Backend Health Check:** Open http://localhost:8000/health
-
-### 3. Stop the Application
-
-To shut down all running services:
-
-```powershell
-docker compose down
+#### 2. Execute Training Pipeline
+Train the model, optimize decision cutoffs, and save the serialized model artifact:
+```bash
+python src/train.py
 ```
+
+#### 3. Run Test Suite
+Execute unit tests to verify API endpoints and pipeline transformations:
+```bash
+pytest
+```
+
+#### 4. Launch Backend API & Frontend UI
+In separate terminal sessions:
+
+* **FastAPI Service**:
+  ```bash
+  uvicorn src.api:app --reload
+  ```
+
+* **Streamlit Dashboard**:
+  ```bash
+  streamlit run src/app_ui.py
+  ```
 
 ---
 
-## API Documentation
+## 📊 Methodology & Clinical Decisions
 
-### `POST /predict`
-
-Accepts medical parameters and returns classification prediction and confidence probability.
-
-**Request Payload:**
-
-```json
-{
-  "pregnancies": 2,
-  "glucose": 130,
-  "blood_pressure": 70,
-  "skin_thickness": 20,
-  "insulin": 80,
-  "bmi": 28.5,
-  "diabetes_pedigree": 0.45,
-  "age": 35
-}
-```
-
-**Response (`200 OK`):**
-
-```json
-{
-  "prediction": 0,
-  "probability": 0.23
-}
-```
+1. **Handling Biological Artifacts**: In tabular diabetes records, zero values in metrics like `BloodPressure`, `BMI`, or `Glucose` reflect missing measurements rather than real zero values. Replacing them prior to pipeline fitting causes data leakage. The `ColumnTransformer` handles this transformation during pipeline execution.
+2. **Decision Cutoff Optimization**: Default $0.5$ decision thresholds fail in high-stakes clinical risk classification. The training pipeline evaluates $F_1$-score trajectories over Precision-Recall curves to select an optimal decision cutoff for diabetes risk identification.
 
 ---
 
-## Local Development & Model Training
+## 🛠 Tech Stack
 
-To run or train the project locally outside of Docker:
-
-1. **Activate local virtual environment:**
-   ```powershell
-   .\venv\Scripts\Activate.ps1
-   ```
-
-2. **Install dependencies:**
-   ```powershell
-   pip install -r requirements.txt
-   ```
-
-3. **Explore dataset:**
-   ```powershell
-   python explore_data.py
-   ```
-
-4. **Re-train the ML Model:**
-   ```powershell
-   python src/train.py
-   ```
-
-5. **Run Pytest suite:**
-   ```powershell
-   pytest
-   ```
+* **Language**: Python 3.10+
+* **Machine Learning**: `scikit-learn`, `pandas`, `numpy`
+* **Serving & Web**: `FastAPI`, `Streamlit`, `uvicorn`
+* **MLOps & DevOps**: `Docker`, `Docker Compose`, `joblib`, `pytest`, `logging`
