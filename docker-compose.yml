@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: diabetes_api
+    ports:
+      - "8000:8000"
+    restart: always
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: diabetes_frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000/predict
+    depends_on:
+      - api
+    restart: always
